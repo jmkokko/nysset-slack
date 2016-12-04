@@ -1,29 +1,41 @@
 "use strict";
 
-const debug = require("debug")("nysset-slack");
-const SwaggerExpress = require("swagger-express-mw");
-const app = require("express")();
-const config = {
+const
+    debug = require('debug')('nysset-slack'),
+    bole = require('bole'),
+    SwaggerExpress = require('swagger-express-mw'),
+    app = require('express')();
+
+const nconf = require('./config');
+
+bole.output({
+    level: 'info',
+    stream: process.stdout
+});
+
+const logger = bole('app');
+
+logger.info('Creating server...');
+
+const expressConfig = {
     appRoot: __dirname // required config
 };
 
-debug("creating server...");
-
-SwaggerExpress.create(config, function (err, swaggerExpress) {
+SwaggerExpress.create(expressConfig, function (err, swaggerExpress) {
 
     if (err) {
         throw err;
     }
 
-    debug("installing middleware...");
+    logger.debug('installing middleware...');
 
     // install middleware
     swaggerExpress.register(app);
 
-    var port = process.env.PORT || 10010;
+    var port = nconf.get('PORT');
     app.listen(port);
 
-    debug("ready!");
+    logger.info(`Server running in port ${port}!`);
 });
 
 module.exports = app; // for testing

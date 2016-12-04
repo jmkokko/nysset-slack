@@ -3,7 +3,7 @@ info:
   version: "0.0.1"
   title: Nysset Slack Integration
 # during dev, should point to your local machine
-host: localhost:10010
+host: localhost:8080
 # basePath prefixes all resource paths 
 basePath: /v1
 # 
@@ -13,30 +13,30 @@ schemes:
   - https
 # format of bodies a client can send (Content-Type)
 consumes:
-  - application/json
+  - application/x-www-form-urlencoded
 # format of the responses to the client (Accepts)
 produces:
   - application/json
 paths:
-  /hsl/stops/departures:
+  /slackrequest:
     # binds a127 app logic to a route
-    x-swagger-router-controller: departures
-    get:
-      description: Returns departures time table for stops matching the given query
-      # used as the method name of the controller
-      operationId: departures
+    x-swagger-router-controller: slack-request
+    post:
+      description: Request endpoint for accepting slash command from Slack
+      operationId: slackRequest
       parameters:
-        - name: name
-          in: query
-          description: The query expression used for matching stops
+        - name: command
+          in: body
           required: true
-          type: string
+          schema:
+            $ref: '#/definitions/SlackCommand'
+
       responses:
         "200":
           description: Success
           schema:
             # a pointer to a definition
-            $ref: "#/definitions/DeparturesResponse"
+            $ref: "#/definitions/SlackResponse"
         # responses may fall through to errors
         default:
           description: Error
@@ -46,7 +46,35 @@ paths:
     x-swagger-pipe: swagger_raw
 # complex objects have schema definitions
 definitions:
-  DeparturesResponse:
+
+  SlackCommand:
+    required:
+      - token
+      - text
+      - response_url
+    properties:
+      token:
+        type: string
+      team_id:
+        type: string
+      team_domain:
+        type: string
+      channel_id:
+        type: string
+      channel_name:
+        type: string
+      user_id:
+        type: string
+      user_name:
+        type: string
+      command:
+        type: string
+      text:
+        type: string
+      response_url:
+        type: string
+
+  SlackResponse:
     type: object
     properties:
       response_type:
@@ -57,6 +85,7 @@ definitions:
         type: array
         items:
           $ref: '#/definitions/Attachment'
+          
   ErrorResponse:
     required:
       - message
@@ -66,7 +95,13 @@ definitions:
   Attachment:
     type: object
     properties:
-      title:
+      color:
         type: string
-      text:
+      author_name:
+        type: string
+      author_link:
+        type: string
+      author_icon:
+        type: string
+      title:
         type: string
