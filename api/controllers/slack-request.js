@@ -4,7 +4,11 @@ const
     _ = require('lodash'),
     debug = require('debug')('nysset-slack'),
     HTTPStatus = require('http-status-codes'),
-    log = require('bole')('nysset-slack'),
+    logger = require('bole')('nysset-slack'),
+    moment = require('moment'),
+    rp = require('request-promise');
+
+const
     nconf = require('../../config');
 
 const
@@ -31,25 +35,139 @@ function slackRequest(req, res) {
 
     if( token !== nconf.get('SLACK_TOKEN')) {
 
-        log.error(`token validation failed: ${token}`);
-        res.status(HTTPStatus.UNAUTHORIZED).json('token validation failed');
+        logger.error(`token validation failed: ${token}`);
+        res
+            .status(HTTPStatus.UNAUTHORIZED)
+            .json('token validation failed');
 
     } else {
 
-        let response;
         if( isNumeric(text) ) {
-            response = departures.queryByCode(text);
+            const response = departures.queryByCode(text);
+            res.json(response);
         } else {
-            response = departures.queryByName(text);
+            departures.queryByName(text)
+                .then(stops => {
+                    res
+                        .status(HTTPStatus.OK)
+                        .end();
+                        // .json({ message: 'Processing...' });
+                    logger.info('Queueing delayed responses...');
+                    _.forEach(stops, stop => {
+                        sendDelayedResponse(response_url, stop);
+                    })
+                });
         }
-
-        res.json(response);
     }
 }
 
 function isNumeric(query) {
 
     return !_.isNull(query.match(/^\d+$/));
+}
+
+function stoptimesPattern2attachment(stoptimesPattern) {
+
+    const {
+        pattern,
+        stoptimes
+    } = stoptimesPattern;
+
+    const {
+        directionId,
+        name,
+        code,
+        headsign,
+        route
+    } = pattern;
+
+    const {
+        mode,
+        url,
+        gtfsId,
+        desc,
+        longName,
+        shortName
+    } = route;
+
+    const title = _.join(_.map(stoptimes, formatDeparture), ' ');
+
+    logger.info(title);
+
+    const attachment = {
+                "color": "#36a64f",
+                "author_name": `${shortName}  ${longName}`,
+                "author_link": url,
+                "author_icon": transportModeIconUrl(mode),
+                "title": title,
+    };
+
+    return attachment;
+}
+
+function formatDeparture(stoptime) {
+    const {
+        serviceDay,
+        scheduledDeparture,
+        realtimeDeparture,
+        realtime
+    } = stoptime;
+
+    let departure = moment.unix(serviceDay+(realtime ? realtimeDeparture : scheduledDeparture));
+
+    return departure.format('hh:mm');
+}
+
+function transportModeIconUrl(mode) {
+    switch(mode) {
+        case 'BUS': return 'https://linjakartta.reittiopas.fi/img/bus.png'; break;
+        case 'TRAM': return 'https://linjakartta.reittiopas.fi/img/tram.png'; break;
+        case 'SUBWAY': return 'https://linjakartta.reittiopas.fi/img/metro.png'; break;
+        default: return 'https://linjakartta.reittiopas.fi/img/bus.png';
+    }
+}
+
+function sendDelayedResponse(response_url, stop) {
+
+    const {
+        gtfsId,
+        url,
+        code,
+        name,
+        zoneId,
+        stoptimesForPatterns
+    } = stop;
+
+    if( !_.isEmpty(stoptimesForPatterns)) {
+        const text = `*${code} ${name}*    ${url}`;
+
+        logger.info(text);
+
+        let response = {
+            "response_type": "in_channel",
+            "text": text,
+            "attachments": _.map(stoptimesForPatterns, stoptimesPattern2attachment)
+        };
+
+
+        const options = {
+            uri: response_url,
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json'
+            },
+            body: response,
+            json: true
+        };
+
+        rp(options)
+            .then(() => {
+                logger.info(`Response sent for ${gtfsId}`);
+            })
+            .catch(err => {
+                logger.error(err);
+            });
+    }
 }
 
 module.exports = {

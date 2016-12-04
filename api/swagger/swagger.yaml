@@ -15,8 +15,8 @@ schemes:
 consumes:
   - application/x-www-form-urlencoded
 # format of the responses to the client (Accepts)
-produces:
-  - application/json
+#produces:
+#  - application/json
 paths:
   /slackrequest:
     # binds a127 app logic to a route
@@ -34,9 +34,6 @@ paths:
       responses:
         "200":
           description: Success
-          schema:
-            # a pointer to a definition
-            $ref: "#/definitions/SlackResponse"
         # responses may fall through to errors
         default:
           description: Error
@@ -74,34 +71,9 @@ definitions:
       response_url:
         type: string
 
-  SlackResponse:
-    type: object
-    properties:
-      response_type:
-        type: string
-      text:
-        type: string
-      attachments:
-        type: array
-        items:
-          $ref: '#/definitions/Attachment'
-          
   ErrorResponse:
     required:
       - message
     properties:
       message:
-        type: string
-  Attachment:
-    type: object
-    properties:
-      color:
-        type: string
-      author_name:
-        type: string
-      author_link:
-        type: string
-      author_icon:
-        type: string
-      title:
         type: string

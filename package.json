@@ -15,14 +15,16 @@
   },
   "dependencies": {
     "bole": "^3.0.2",
+    "debug": "latest",
     "express": "^4.12.3",
     "http-status-codes": "^1.0.6",
     "lodash": "^4.17.2",
     "mocha": "^3.2.0",
+    "moment": "^2.17.1",
     "nconf": "^0.8.4",
     "path": "^0.12.7",
-    "swagger-express-mw": "^0.1.0",
-    "debug": "latest"
+    "request-promise": "^4.1.1",
+    "swagger-express-mw": "^0.1.0"
   },
   "devDependencies": {
     "should": "^7.1.0",
