@@ -2,7 +2,7 @@
   "name": "nysset-slack",
   "version": "0.0.1",
   "private": true,
-  "description": "Simple Hello World Node.js sample for Google App Engine",
+  "description": "Nysset Slack slash command integration",
   "keywords": [
     "Nysset",
     "Slack"
