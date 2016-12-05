@@ -2,18 +2,12 @@
 
 const
     debug = require('debug')('nysset-slack'),
-    bole = require('bole'),
     SwaggerExpress = require('swagger-express-mw'),
     app = require('express')();
 
-const nconf = require('./config');
-
-bole.output({
-    level: 'info',
-    stream: process.stdout
-});
-
-const logger = bole('app');
+const
+    logger = require('./logger'),
+    nconf = require('./config');
 
 logger.info('Creating server...');
 
@@ -27,12 +21,12 @@ SwaggerExpress.create(expressConfig, function (err, swaggerExpress) {
         throw err;
     }
 
-    logger.debug('installing middleware...');
+    debug('installing middleware...');
 
     // install middleware
     swaggerExpress.register(app);
 
-    var port = nconf.get('PORT');
+    const port = nconf.get('PORT');
     app.listen(port);
 
     logger.info(`Server running in port ${port}!`);

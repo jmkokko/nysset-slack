@@ -4,31 +4,31 @@ const
     _ = require('lodash'),
     debug = require('debug')('nysset-slack'),
     HTTPStatus = require('http-status-codes'),
-    logger = require('bole')('nysset-slack'),
     moment = require('moment'),
     rp = require('request-promise');
 
 const
-    nconf = require('../../config');
-
-const
-    departures = require('../services/departures');
+    logger = require('../../logger'),
+    nconf = require('../../config'),
+    departures = require('../services/departures'),
+    stoptimesPattern2attachment = require('../util/stop-times-pattern-2-attachment');
 
 function slackRequest(req, res) {
 
-    _.forIn(req.swagger.params, param => {
-        debug(`\nname: ${_.get(param, 'schema.name')} \nvalue: ${JSON.stringify(_.get(param, 'value'), null, 2)}`);
-    });
+    _.forIn(
+        _.get(req, 'swagger.params'),
+        param => debug(`\nname: ${_.get(param, 'schema.name')} \nvalue: ${JSON.stringify(_.get(param, 'value'), null, 2)}`)
+    );
 
     const {
         token,
-        team_id,
-        team_domain,
-        channel_id,
-        channel_name,
-        user_id,
-        user_name,
-        command,
+        // team_id,
+        // team_domain,
+        // channel_id,
+        // channel_name,
+        // user_id,
+        // user_name,
+        // command,
         text,
         response_url
     } = _.get(req, 'swagger.params.command.value');
@@ -42,113 +42,44 @@ function slackRequest(req, res) {
 
     } else {
 
-        if( isNumeric(text) ) {
-            const response = departures.queryByCode(text);
-            res.json(response);
-        } else {
-            departures.queryByName(text)
-                .then(stops => {
-                    res
-                        .status(HTTPStatus.OK)
-                        .end();
-                        // .json({ message: 'Processing...' });
-                    logger.info('Queueing delayed responses...');
-                    _.forEach(stops, stop => {
-                        sendDelayedResponse(response_url, stop);
-                    })
-                });
-        }
-    }
-}
+        departures.query(text)
+            .then(stops => {
+                res
+                    .status(HTTPStatus.OK)
+                    .end();
 
-function isNumeric(query) {
-
-    return !_.isNull(query.match(/^\d+$/));
-}
-
-function stoptimesPattern2attachment(stoptimesPattern) {
-
-    const {
-        pattern,
-        stoptimes
-    } = stoptimesPattern;
-
-    const {
-        directionId,
-        name,
-        code,
-        headsign,
-        route
-    } = pattern;
-
-    const {
-        mode,
-        url,
-        gtfsId,
-        desc,
-        longName,
-        shortName
-    } = route;
-
-    const title = _.join(_.map(stoptimes, formatDeparture), ' ');
-
-    logger.info(title);
-
-    const attachment = {
-                "color": "#36a64f",
-                "author_name": `${shortName}  ${longName}`,
-                "author_link": url,
-                "author_icon": transportModeIconUrl(mode),
-                "title": title,
-    };
-
-    return attachment;
-}
-
-function formatDeparture(stoptime) {
-    const {
-        serviceDay,
-        scheduledDeparture,
-        realtimeDeparture,
-        realtime
-    } = stoptime;
-
-    let departure = moment.unix(serviceDay+(realtime ? realtimeDeparture : scheduledDeparture));
-
-    return departure.format('hh:mm');
-}
-
-function transportModeIconUrl(mode) {
-    switch(mode) {
-        case 'BUS': return 'https://linjakartta.reittiopas.fi/img/bus.png'; break;
-        case 'TRAM': return 'https://linjakartta.reittiopas.fi/img/tram.png'; break;
-        case 'SUBWAY': return 'https://linjakartta.reittiopas.fi/img/metro.png'; break;
-        default: return 'https://linjakartta.reittiopas.fi/img/bus.png';
+                logger.info('Queueing delayed responses...');
+                _.forEach(stops, stop => {
+                    sendDelayedResponse(response_url, stop);
+                })
+            });
     }
 }
 
 function sendDelayedResponse(response_url, stop) {
 
+    if( _.isEmpty(response_url) || _.isEmpty(stop) ) {
+        return;
+    }
+
     const {
         gtfsId,
         url,
         code,
         name,
-        zoneId,
         stoptimesForPatterns
     } = stop;
 
     if( !_.isEmpty(stoptimesForPatterns)) {
-        const text = `*${code} ${name}*    ${url}`;
+        const text = `_(${gtfsId})_ *${code} ${name}*    ${_.isNull(url) ? '' : url}`;
 
         logger.info(text);
 
-        let response = {
-            "response_type": "in_channel",
+        const response = {
+            "response_type": "ephemeral",
             "text": text,
             "attachments": _.map(stoptimesForPatterns, stoptimesPattern2attachment)
         };
-
 
         const options = {
             uri: response_url,
@@ -171,6 +102,5 @@ function sendDelayedResponse(response_url, stop) {
 }
 
 module.exports = {
-    slackRequest,
-    isNumeric
+    slackRequest
 };
